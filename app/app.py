@@ -1,10 +1,11 @@
+import hashlib
 import os
 import sqlite3
 from datetime import date, datetime, timedelta
 from functools import wraps
 from hmac import compare_digest
 
-from flask import Flask, g, jsonify, request, send_from_directory
+from flask import Flask, Response, g, jsonify, request
 
 DB_PATH = os.environ.get("DB_PATH", "/data/checkins.db")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
@@ -77,9 +78,39 @@ def parse_day(value):
 
 # ---------- pages ----------
 
+def build_index():
+    """index.html with a content hash on each asset URL.
+
+    Proxies and CDNs (e.g. Cloudflare) cache .js/.css aggressively, which can
+    pair a new page with an old script. A new hash on every change gives each
+    version its own URL, so a stale copy can never be served.
+    """
+    with open(os.path.join(app.static_folder, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    for asset in ("style.css", "app.js"):
+        with open(os.path.join(app.static_folder, asset), "rb") as f:
+            version = hashlib.sha256(f.read()).hexdigest()[:10]
+        html = html.replace(f'"/static/{asset}"', f'"/static/{asset}?v={version}"')
+    return html
+
+
+INDEX_HTML = build_index()
+
+
 @app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return Response(INDEX_HTML, mimetype="text/html")
+
+
+@app.after_request
+def cache_headers(resp):
+    if request.path.startswith("/static/") and request.args.get("v"):
+        # Versioned URL: content behind it never changes.
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif not request.path.startswith("/static/"):
+        # Page and API: always fetch fresh, never store in a proxy cache.
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/config")
