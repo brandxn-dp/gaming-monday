@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check-In</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1 id="title">Check-In</h1>
+  <nav>
+    <button class="tab active" data-tab="checkin">Check In</button>
+    <button class="tab" data-tab="tracker">Tracker</button>
+    <button class="tab" data-tab="admin">Admin</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Check-in -->
+  <section id="tab-checkin" class="panel active">
+    <div class="panel-head">
+      <h2 id="today-label"></h2>
+      <span id="today-count" class="muted"></span>
+    </div>
+    <ul id="people-list" class="people"></ul>
+    <p id="people-empty" class="empty hidden">No names yet. An admin can add them in the <a href="#" data-goto="admin">Admin</a> tab.</p>
+  </section>
+
+  <!-- Tracker -->
+  <section id="tab-tracker" class="panel">
+    <div class="card">
+      <div class="panel-head">
+        <h2><span id="total-checkins">0</span> check-ins in the last year</h2>
+        <span class="muted"><span id="session-days">0</span> days with activity</span>
+      </div>
+      <div class="heatmap-wrap"><div id="heatmap-all" class="heatmap"></div></div>
+      <div class="legend">
+        <span class="muted">Fewer</span>
+        <span class="cell l0"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span>
+        <span class="muted">More</span>
+      </div>
+      <div id="day-detail" class="day-detail muted">Click a square to see who checked in.</div>
+    </div>
+
+    <h2 class="section-title">By person</h2>
+    <div id="person-cards" class="person-cards"></div>
+  </section>
+
+  <!-- Admin -->
+  <section id="tab-admin" class="panel">
+    <div id="admin-login" class="card narrow">
+      <h2>Admin login</h2>
+      <form id="login-form">
+        <input type="password" id="admin-password" placeholder="Admin password" autocomplete="current-password" required>
+        <button type="submit" class="primary">Log in</button>
+      </form>
+      <p id="login-error" class="error hidden"></p>
+    </div>
+
+    <div id="admin-panel" class="card hidden">
+      <div class="panel-head">
+        <h2>Manage names</h2>
+        <button id="logout" class="ghost">Log out</button>
+      </div>
+      <form id="add-form" class="row">
+        <input type="text" id="new-name" placeholder="Add a name" maxlength="60" required>
+        <button type="submit" class="primary">Add</button>
+      </form>
+      <p id="admin-error" class="error hidden"></p>
+      <ul id="admin-list" class="admin-list"></ul>
+      <p class="muted small">Hidden names stay in the tracker history but don't appear on the check-in list. Deleting a name also deletes its check-ins.</p>
+    </div>
+  </section>
+</main>
+
+<div id="tooltip" class="tooltip hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

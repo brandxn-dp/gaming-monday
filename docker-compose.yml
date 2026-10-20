@@ -1,0 +1,12 @@
+services:
+  checkin:
+    build: .
+    container_name: gaming-monday
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      APP_TITLE: ${APP_TITLE:-Gaming Monday}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
