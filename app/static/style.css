@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0d1117;
   --surface: #161b22;
   --border: #30363d;
@@ -18,6 +19,7 @@
 
 /* Dark is the default; light only when picked with the toggle */
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #f6f8fa;
   --surface: #ffffff;
   --border: #d0d7de;
@@ -169,18 +171,17 @@ form.row input { flex: 1; }
 
 /* ---- Heatmap ---- */
 .heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
-.heatmap {
+/* One square per Monday; squares stretch to fill the card */
+.strip {
   display: grid;
-  grid-template-rows: 16px repeat(7, var(--cell));
+  grid-template-rows: 16px auto;
   grid-auto-flow: column;
-  grid-template-columns: 28px;
-  grid-auto-columns: var(--cell);
-  gap: var(--gap);
-  width: max-content;
-  position: relative;
+  grid-auto-columns: minmax(10px, 1fr);
+  gap: 3px;
+  min-width: 670px;
 }
-.heatmap .wd { font-size: 10px; color: var(--muted); line-height: var(--cell); width: 28px; }
-.heatmap .mo { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: visible; }
+.strip .mo { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: visible; }
+.strip .cell { width: auto; height: auto; aspect-ratio: 1; cursor: pointer; }
 
 .cell {
   width: var(--cell);
@@ -197,7 +198,6 @@ form.row input { flex: 1; }
 .cell.l4 { background: var(--l4); outline-color: transparent; }
 .cell.today { outline: 1px solid var(--text); }
 .cell.selected { outline: 2px solid var(--accent); outline-offset: 0; }
-.heatmap .cell[data-day] { cursor: pointer; }
 
 .legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; margin-top: 8px; }
 .legend .cell { display: inline-block; }
@@ -212,14 +212,13 @@ form.row input { flex: 1; }
 .chip .dot { width: 16px; height: 16px; border-radius: 50%; }
 
 .section-title { margin: 32px 0 12px; }
-.person-cards { display: grid; gap: 12px; }
+.person-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .person-card .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .person-card .top .name { font-weight: 600; font-size: 16px; }
 .stats { display: flex; flex-wrap: wrap; gap: 20px; margin-left: auto; text-align: right; }
 .stat b { display: block; font-size: 18px; }
 .stat span { font-size: 12px; color: var(--muted); }
 .person-card.inactive { opacity: .6; }
-.person-card .heatmap { --cell: 10px; --gap: 2px; }
 
 .tooltip {
   position: fixed;

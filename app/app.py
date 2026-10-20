@@ -115,6 +115,8 @@ def checkin():
     person_id = body.get("person_id")
     if day is None or not isinstance(person_id, int):
         return jsonify(error="person_id and day required"), 400
+    if date.fromisoformat(day).weekday() != 0:
+        return jsonify(error="Check-ins are only for Mondays"), 400
     db = get_db()
     person = db.execute("SELECT id FROM people WHERE id = ? AND active = 1", (person_id,)).fetchone()
     if not person:
@@ -137,60 +139,67 @@ def undo_checkin():
     return jsonify(ok=True)
 
 
+MONDAY_SQL = "strftime('%w', day) = '1'"  # SQLite: 0 = Sunday, 1 = Monday
+
+
 @app.route("/api/stats")
 def stats():
-    """All check-ins for the last N days plus per-person summaries."""
+    """Monday check-ins for the last N weeks plus per-person summaries.
+
+    Only Mondays count. A "session" is a Monday where at least one person
+    checked in, so a skipped week never breaks anyone's streak.
+    """
     end = parse_day(request.args.get("end")) or date.today().isoformat()
-    days = min(max(int(request.args.get("days", 371)), 7), 3660)
-    start = (date.fromisoformat(end) - timedelta(days=days - 1)).isoformat()
+    weeks = min(max(int(request.args.get("weeks", 52)), 1), 520)
+    end_d = date.fromisoformat(end)
+    last_monday = end_d - timedelta(days=end_d.weekday())
+    start = (last_monday - timedelta(weeks=weeks - 1)).isoformat()
     db = get_db()
 
     people = [dict(r) for r in db.execute(
         "SELECT id, name, active FROM people ORDER BY sort_order, name COLLATE NOCASE"
     ).fetchall()]
 
-    rows = db.execute(
-        "SELECT person_id, day FROM checkins WHERE day BETWEEN ? AND ? ORDER BY day",
-        (start, end),
+    monday_rows = db.execute(
+        f"SELECT person_id, day FROM checkins WHERE {MONDAY_SQL} AND day <= ? ORDER BY day", (end,)
     ).fetchall()
-    by_day = {}
-    for r in rows:
-        by_day.setdefault(r["day"], []).append(r["person_id"])
 
-    totals = {
-        r["person_id"]: {"total": r["total"], "first": r["first"], "last": r["last"]}
-        for r in db.execute(
-            "SELECT person_id, COUNT(*) AS total, MIN(day) AS first, MAX(day) AS last "
-            "FROM checkins GROUP BY person_id"
-        ).fetchall()
-    }
-    all_days = sorted({r["day"] for r in db.execute("SELECT DISTINCT day FROM checkins").fetchall()})
+    by_day = {}
     days_by_person = {}
-    for r in db.execute("SELECT person_id, day FROM checkins ORDER BY day").fetchall():
+    for r in monday_rows:
+        if r["day"] >= start:
+            by_day.setdefault(r["day"], []).append(r["person_id"])
         days_by_person.setdefault(r["person_id"], []).append(r["day"])
+    sessions = sorted({r["day"] for r in monday_rows})
 
     for p in people:
-        t = totals.get(p["id"], {"total": 0, "first": None, "last": None})
-        p.update(t)
-        p["days"] = days_by_person.get(p["id"], [])
-        # Attendance rate = share of session days (days anyone checked in)
-        # since this person's first check-in.
-        if t["first"]:
-            sessions = [d for d in all_days if d >= t["first"]]
-            p["rate"] = round(t["total"] / len(sessions), 3) if sessions else 0
-        else:
-            p["rate"] = 0
-        p["streak"] = session_streak(set(p["days"]), all_days)
+        days = days_by_person.get(p["id"], [])
+        p["days"] = days
+        p["total"] = len(days)
+        p["first"] = days[0] if days else None
+        p["last"] = days[-1] if days else None
+        # Attendance = share of sessions since this person's first check-in
+        # (tonight only counts once they've checked in, same as the streak).
+        since = [d for d in sessions if days and d >= days[0] and (d != end or d in days)]
+        p["rate"] = round(len(days) / len(since), 3) if since else 0
+        p["streak"] = monday_streak(set(days), sessions, end)
 
-    return jsonify(start=start, end=end, by_day=by_day, people=people, session_days=len(all_days))
+    return jsonify(start=start, end=last_monday.isoformat(), by_day=by_day, people=people,
+                   session_days=len([d for d in sessions if d >= start]))
 
 
-def session_streak(person_days, all_days):
-    """Consecutive most-recent session days (days anyone checked in) this person attended."""
+def monday_streak(person_days, sessions, today):
+    """Consecutive most-recent sessions this person attended.
+
+    Tonight's session doesn't break a streak until it's over, so someone who
+    hasn't checked in yet today keeps last week's streak.
+    """
     streak = 0
-    for d in reversed(all_days):
+    for d in reversed(sessions):
         if d in person_days:
             streak += 1
+        elif d == today:
+            continue
         else:
             break
     return streak
@@ -210,7 +219,7 @@ def admin_people():
     rows = get_db().execute(
         """
         SELECT p.id, p.name, p.active, p.sort_order,
-               (SELECT COUNT(*) FROM checkins c WHERE c.person_id = p.id) AS total
+               (SELECT COUNT(*) FROM checkins c WHERE c.person_id = p.id AND strftime('%w', c.day) = '1') AS total
         FROM people p ORDER BY p.sort_order, p.name COLLATE NOCASE
         """
     ).fetchall()

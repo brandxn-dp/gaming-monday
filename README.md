@@ -44,6 +44,6 @@ Docker tab → **Add Container**, then set:
 
 ## Tabs
 
-- **Check In** – today's list. Each person can check in once per day; click again to undo.
-- **Tracker** – a year-long heatmap where darker green = more people that day (hover for names, click for details), followed by one heatmap per person with total check-ins, attendance % (of days anyone checked in since their first), and current streak.
+- **Check In** – open on Mondays (until 6 AM Tuesday for late sessions). Each person checks in once per Monday; click again to undo.
+- **Tracker** – one square per Monday for the last 52 weeks; darker green = more people (hover for names, click for details). Below it, one strip per person with Mondays attended, attendance % and week streak. Only Mondays count, and a Monday nobody played never breaks a streak.
 - **Admin** – add, rename, reorder, hide (keeps history) or delete (removes history) names.

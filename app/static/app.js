@@ -56,15 +56,41 @@ document.addEventListener("click", (e) => {
 
 // ---------- check-in ----------
 
+const WEEKS = 52;
+const GRACE_HOUR = 6; // Monday sessions that run past midnight still count until 6 AM Tuesday
+
+// The Monday that check-ins currently go to, or null if it isn't Monday night.
+function currentSession(now = new Date()) {
+  if (now.getDay() === 1) return isoDay(now);
+  if (now.getDay() === 2 && now.getHours() < GRACE_HOUR) {
+    const mon = new Date(now);
+    mon.setDate(mon.getDate() - 1);
+    return isoDay(mon);
+  }
+  return null;
+}
+function nextMonday(now = new Date()) {
+  const d = new Date(now);
+  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+  return isoDay(d);
+}
+// Most recent Monday on or before `day`.
+function mondayOnOrBefore(day) {
+  const d = parseDay(day);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return isoDay(d);
+}
+
 async function loadPeople() {
-  const today = isoDay();
-  $("#today-label").textContent = prettyDay(today);
-  const people = await api(`/api/people?day=${today}`);
+  const session = currentSession();
+  const day = session || nextMonday();
+  $("#today-label").textContent = session ? prettyDay(session) : `Check-in opens ${prettyDay(day)}`;
+  const people = await api(`/api/people?day=${day}`);
   const list = $("#people-list");
   list.innerHTML = "";
   $("#people-empty").classList.toggle("hidden", people.length > 0);
   const done = people.filter((p) => p.checked_in).length;
-  $("#today-count").textContent = people.length ? `${done} of ${people.length} checked in` : "";
+  $("#today-count").textContent = session && people.length ? `${done} of ${people.length} checked in` : "";
 
   for (const p of people) {
     const li = document.createElement("li");
@@ -73,17 +99,17 @@ async function loadPeople() {
     li.innerHTML = `
       <div class="avatar" style="background:${colorFor(p.id)}">${esc(initials(p.name))}</div>
       <div class="name">${esc(p.name)}${p.checked_in ? `<span class="meta">Checked in at ${time}</span>` : ""}</div>
-      <button class="checkin-btn ${p.checked_in ? "done" : "primary"}">${p.checked_in ? "✓ Checked in" : "Check in"}</button>`;
+      <button class="checkin-btn ${p.checked_in ? "done" : "primary"}" ${session ? "" : "disabled"}>${p.checked_in ? "✓ Checked in" : session ? "Check in" : "Opens Monday"}</button>`;
     const btn = li.querySelector("button");
     if (p.checked_in) {
       btn.addEventListener("mouseenter", () => (btn.textContent = "Undo"));
       btn.addEventListener("mouseleave", () => (btn.textContent = "✓ Checked in"));
     }
     btn.addEventListener("click", async () => {
-      if (p.checked_in && !confirm(`Undo ${p.name}'s check-in for today?`)) return;
+      if (p.checked_in && !confirm(`Undo ${p.name}'s check-in for this Monday?`)) return;
       btn.disabled = true;
       try {
-        await api("/api/checkin", { method: p.checked_in ? "DELETE" : "POST", body: { person_id: p.id, day: today } });
+        await api("/api/checkin", { method: p.checked_in ? "DELETE" : "POST", body: { person_id: p.id, day: session } });
       } catch (err) {
         alert(err.message);
       }
@@ -107,17 +133,11 @@ function showTip(e, html) {
 function hideTip() { tooltip.classList.add("hidden"); }
 
 /**
- * Build a GitHub-style contribution grid.
+ * GitHub-style strip with one square per Monday, oldest on the left.
  * levelFor(day) -> 0..4, tipFor(day) -> html, onClick(day, cell) optional.
  */
-function buildHeatmap(container, endDay, weeks, levelFor, tipFor, onClick) {
+function buildMondayStrip(container, lastMonday, weeks, levelFor, tipFor, onClick) {
   container.innerHTML = "";
-  const end = parseDay(endDay);
-  const start = new Date(end);
-  start.setDate(start.getDate() - (weeks - 1) * 7 - end.getDay()); // Sunday, `weeks` columns back
-  const todayStr = isoDay();
-
-  // Weekday label column
   const add = (cls, text = "") => {
     const el = document.createElement("div");
     el.className = cls;
@@ -125,53 +145,47 @@ function buildHeatmap(container, endDay, weeks, levelFor, tipFor, onClick) {
     container.appendChild(el);
     return el;
   };
-  add("mo");
-  ["", "Mon", "", "Wed", "", "Fri", ""].forEach((t) => add("wd", t));
-
+  const session = currentSession();
+  const d = parseDay(lastMonday);
+  d.setDate(d.getDate() - (weeks - 1) * 7);
   let lastMonth = -1;
-  const d = new Date(start);
   for (let w = 0; w < weeks; w++) {
-    // Label a column with the month when the month changes (skip a cramped label on the very first column)
+    const day = isoDay(d);
+    // Month label where the month changes (skip a cramped partial month on the far left)
     const m = d.getMonth();
-    const label = m !== lastMonth && !(w === 0 && d.getDate() > 7) ? MONTHS[m] : "";
+    add("mo", m !== lastMonth && !(w === 0 && d.getDate() > 14) ? MONTHS[m] : "");
     lastMonth = m;
-    add("mo", label);
-    for (let i = 0; i < 7; i++) {
-      const day = isoDay(d);
-      if (d > end) {
-        add("cell blank");
-      } else {
-        const cell = add(`cell l${levelFor(day)}${day === todayStr ? " today" : ""}`);
-        cell.dataset.day = day;
-        cell.addEventListener("mouseenter", (e) => showTip(e, tipFor(day)));
-        cell.addEventListener("mouseleave", hideTip);
-        if (onClick) cell.addEventListener("click", () => onClick(day, cell));
-      }
-      d.setDate(d.getDate() + 1);
-    }
+    const cell = add(`cell l${levelFor(day)}${day === session ? " today" : ""}`);
+    cell.dataset.day = day;
+    cell.addEventListener("mouseenter", (e) => showTip(e, tipFor(day)));
+    cell.addEventListener("mouseleave", hideTip);
+    if (onClick) cell.addEventListener("click", () => onClick(day, cell));
+    d.setDate(d.getDate() + 7);
   }
 }
 
 async function loadTracker() {
-  const end = isoDay();
-  const data = await api(`/api/stats?end=${end}&days=371`);
+  const end = currentSession() || isoDay();
+  const lastMonday = mondayOnOrBefore(end);
+  const data = await api(`/api/stats?end=${end}&weeks=${WEEKS}`);
   const peopleById = Object.fromEntries(data.people.map((p) => [p.id, p]));
   const activeCount = data.people.filter((p) => p.active).length || 1;
   const maxDay = Math.max(1, activeCount, ...Object.values(data.by_day).map((a) => a.length));
 
   const total = Object.values(data.by_day).reduce((n, a) => n + a.length, 0);
   $("#total-checkins").textContent = total;
-  $("#session-days").textContent = Object.keys(data.by_day).length;
+  $("#session-days").textContent = data.session_days;
 
   const namesFor = (day) => (data.by_day[day] || []).map((id) => peopleById[id]).filter(Boolean);
   const level = (n) => (n === 0 ? 0 : Math.min(4, Math.ceil((n / maxDay) * 4)));
+  const short = (day) => prettyDay(day, { month: "short", day: "numeric", year: "numeric" });
 
-  buildHeatmap(
-    $("#heatmap-all"), end, 53,
+  buildMondayStrip(
+    $("#heatmap-all"), lastMonday, WEEKS,
     (day) => level((data.by_day[day] || []).length),
     (day) => {
       const names = namesFor(day);
-      const head = `<b>${names.length ? `${names.length} check-in${names.length > 1 ? "s" : ""}` : "No check-ins"}</b> on ${prettyDay(day, { month: "short", day: "numeric", year: "numeric" })}`;
+      const head = `<b>${names.length ? `${names.length} check-in${names.length > 1 ? "s" : ""}` : "No check-ins"}</b> on Mon ${short(day)}`;
       return names.length ? `${head}<br>${names.map((p) => esc(p.name)).join(", ")}` : head;
     },
     (day, cell) => {
@@ -196,21 +210,25 @@ async function loadTracker() {
         <div class="avatar" style="background:${colorFor(p.id)}">${esc(initials(p.name))}</div>
         <div>
           <div class="name">${esc(p.name)}${p.active ? "" : ' <span class="muted small">(hidden)</span>'}</div>
-          <div class="muted small">${p.last ? `Last seen ${prettyDay(p.last, { month: "short", day: "numeric", year: "numeric" })}` : "Never checked in"}</div>
+          <div class="muted small">${p.last ? `Last seen Mon ${short(p.last)}` : "Never checked in"}</div>
         </div>
         <div class="stats">
-          <div class="stat"><b>${p.total}</b><span>check-ins</span></div>
+          <div class="stat"><b>${p.total}</b><span>Mondays</span></div>
           <div class="stat"><b>${Math.round(p.rate * 100)}%</b><span>attendance</span></div>
-          <div class="stat"><b>${p.streak}</b><span>streak</span></div>
+          <div class="stat"><b>${p.streak}</b><span>week streak</span></div>
         </div>
       </div>
-      <div class="heatmap-wrap"><div class="heatmap"></div></div>`;
-    buildHeatmap(
-      card.querySelector(".heatmap"), end, 53,
+      <div class="heatmap-wrap"><div class="strip"></div></div>`;
+    buildMondayStrip(
+      card.querySelector(".strip"), lastMonday, WEEKS,
       (day) => (daySet.has(day) ? 4 : 0),
-      (day) => `<b>${esc(p.name)}</b> ${daySet.has(day) ? "checked in" : "—"} on ${prettyDay(day, { month: "short", day: "numeric", year: "numeric" })}`
+      (day) => `<b>${esc(p.name)}</b> ${daySet.has(day) ? "checked in" : "—"} on Mon ${short(day)}`
     );
     cards.appendChild(card);
+  }
+  // On narrow screens the strips scroll; start them at the most recent Monday.
+  for (const wrap of document.querySelectorAll("#tab-tracker .heatmap-wrap")) {
+    wrap.scrollLeft = wrap.scrollWidth;
   }
 }
 
