@@ -307,8 +307,7 @@ $("#add-form").addEventListener("submit", async (e) => {
 // ---------- theme ----------
 
 function currentTheme() {
-  return document.documentElement.dataset.theme ||
-    (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  return document.documentElement.dataset.theme || "dark";
 }
 function renderThemeToggle() {
   const dark = currentTheme() === "dark";
@@ -321,7 +320,6 @@ $("#theme-toggle").addEventListener("click", () => {
   try { localStorage.setItem("theme", next); } catch (e) {}
   renderThemeToggle();
 });
-matchMedia("(prefers-color-scheme: light)").addEventListener("change", renderThemeToggle);
 renderThemeToggle();
 
 // ---------- boot ----------

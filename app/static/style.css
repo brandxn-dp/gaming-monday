@@ -16,24 +16,7 @@
   --gap: 3px;
 }
 
-/* Light theme: follows the system unless the user picked one with the toggle */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f6f8fa;
-    --surface: #ffffff;
-    --border: #d0d7de;
-    --text: #1f2328;
-    --muted: #656d76;
-    --accent: #0969da;
-    --danger: #cf222e;
-    --l0: #ebedf0;
-    --l0-border: #e1e4e8;
-    --l1: #9be9a8;
-    --l2: #40c463;
-    --l3: #30a14e;
-    --l4: #216e39;
-  }
-}
+/* Dark is the default; light only when picked with the toggle */
 :root[data-theme="light"] {
   --bg: #f6f8fa;
   --surface: #ffffff;
