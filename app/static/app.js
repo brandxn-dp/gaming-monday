@@ -304,10 +304,31 @@ $("#add-form").addEventListener("submit", async (e) => {
   input.focus();
 });
 
+// ---------- theme ----------
+
+function currentTheme() {
+  return document.documentElement.dataset.theme ||
+    (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+}
+function renderThemeToggle() {
+  const dark = currentTheme() === "dark";
+  $("#theme-toggle").textContent = dark ? "☀️" : "🌙";
+  $("#theme-toggle").title = dark ? "Switch to light mode" : "Switch to dark mode";
+}
+$("#theme-toggle").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch (e) {}
+  renderThemeToggle();
+});
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", renderThemeToggle);
+renderThemeToggle();
+
 // ---------- boot ----------
 
 api("/api/config").then((c) => {
   $("#title").textContent = c.title;
+  $("#checkin-title").textContent = `${c.title} Check In`;
   document.title = c.title;
 });
 const initial = location.hash.slice(1);

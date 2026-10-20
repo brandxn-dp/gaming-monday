@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Check-In</title>
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -13,12 +17,14 @@
     <button class="tab active" data-tab="checkin">Check In</button>
     <button class="tab" data-tab="tracker">Tracker</button>
     <button class="tab" data-tab="admin">Admin</button>
+    <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
   </nav>
 </header>
 
 <main>
   <!-- Check-in -->
   <section id="tab-checkin" class="panel active">
+    <h2 id="checkin-title" class="page-title">Gaming Monday Check In</h2>
     <div class="panel-head">
       <h2 id="today-label"></h2>
       <span id="today-count" class="muted"></span>

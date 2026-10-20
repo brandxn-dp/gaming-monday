@@ -16,8 +16,9 @@
   --gap: 3px;
 }
 
+/* Light theme: follows the system unless the user picked one with the toggle */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #f6f8fa;
     --surface: #ffffff;
     --border: #d0d7de;
@@ -32,6 +33,21 @@
     --l3: #30a14e;
     --l4: #216e39;
   }
+}
+:root[data-theme="light"] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #656d76;
+  --accent: #0969da;
+  --danger: #cf222e;
+  --l0: #ebedf0;
+  --l0-border: #e1e4e8;
+  --l1: #9be9a8;
+  --l2: #40c463;
+  --l3: #30a14e;
+  --l4: #216e39;
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +73,18 @@ header {
 h1 { margin: 0; font-size: 20px; }
 h2 { margin: 0; font-size: 17px; font-weight: 600; }
 
-nav { display: flex; gap: 4px; }
+nav { display: flex; align-items: center; gap: 4px; }
+
+.theme-toggle {
+  margin-left: 8px;
+  width: 34px; height: 34px;
+  padding: 0;
+  display: grid; place-items: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.page-title { font-size: 26px; font-weight: 700; margin: 0 0 4px; }
 
 .tab {
   background: none;
